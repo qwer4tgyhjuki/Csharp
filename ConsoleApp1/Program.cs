@@ -1,92 +1,153 @@
-﻿using Microsoft.CodeAnalysis.CSharp.Scripting;
-public class Program
+﻿using System.Data.Common;
+using System.Data.SqlClient;
+using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
+using Newtonsoft.Json;
+using HtmlAgilityPack;
+class Program
 {
-    /*
-     * Method reads file from current folder.
-     * User must enter integer number and then method gets the text up 
-     * to the charcater indexed  by entered number SPACE
-     * then make the substring and output the cut text
-     */
-    public void LoremIpsum()
+    static void ThreadFun1(List<int> numbers, string threadName)
     {
-
-        string text = File.ReadAllText("./lorem_ipsum.txt");
-        Console.Write("Enter count words: ");
-        string countWords = Console.ReadLine();
-
-        if(!int.TryParse(countWords, out int count))
+        foreach (int number in numbers)
         {
-            Console.WriteLine("Invalid number");
-            return;
-        }
-        if (count <= 0)
-        {
-            Console.WriteLine("Invalid number");
-            return;
-        }
-        int indexSpace = -1;
-        for(int i = 0; i < count; i++)
-        {
-            indexSpace = text.IndexOf(' ', indexSpace + 1);
-            if(indexSpace == -1)
+            if(number < 10)
             {
-                return;
+                Console.WriteLine($"{threadName}: {number}");
             }
         }
-        string selectedText = text.Substring(0, indexSpace);
-        Console.WriteLine(selectedText);
     }
-    public void Calculator()
+    static void ThreadFun2()
     {
-        Console.WriteLine("Enter expression:");
-        /*
-         * Value type is string. Enter expression using numbers and operators and use
-         * method Parse for converting to expression
-         */
-        string expression = Console.ReadLine();
-        try
-        {            
-            double result = Parse(expression);
-            Console.WriteLine("Result: " + result);
-        }
-        catch (Exception ex)
+        string connectionString = "Data Source=(local);Initial Catalog=GameDatabase;Integrated Security=True";
+        using (SqlConnection connection = new SqlConnection(connectionString))
         {
-            Console.WriteLine("Error: " + ex.Message);
-        }
-    }
-    double Parse(string expression)
-    {
-        try
-        {
-            return CSharpScript.EvaluateAsync<double>(expression).Result;
-        }
-        catch (Exception ex)
-        {
-            throw new InvalidOperationException("Error evaluating the expression.", ex);
-        }
-    }
-    public static void Main()
-    {
-        Program pr = new Program();
-        while (true)
-        {
-            Console.WriteLine("\nSelect action (0 - Exit, 1 - Lorem Ipsum 2 - Calculator): ");
-            char select = Console.ReadLine()[0];
-            switch (select)
+            connection.Open();
+            using (SqlCommand command = connection.CreateCommand())
             {
-                case '0':
-                    Console.WriteLine("Leaving");
-                    Environment.Exit(0);
-                    break;
-                case '1':
-                    pr.LoremIpsum();
-                    break;
-                case '2':
-                    pr.Calculator();
-                    break;
-                default:
-                    break;
+                command.CommandText = "SELECT g.title, dc.name " +
+                                      "FROM Games g " +
+                                      "JOIN DevelopersCompanies dc ON g.developer_company_id = dc.developer_company_id where dc.name = 'Valve Corporation'";
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        string gameTitle = reader.GetString(0);
+                        string companyName = reader.GetString(1);
+                        Console.WriteLine($"{companyName}: {gameTitle}");
+                    }
+                }
             }
         }
+    }
+    static void ThreadFun3()
+    {
+        string connectionString = "Data Source=(local);Initial Catalog=GameDatabase;Integrated Security=True";
+        using (SqlConnection connection = new SqlConnection(connectionString))
+        {
+            connection.Open();
+            using (SqlCommand command = connection.CreateCommand())
+            {
+                command.CommandText = "SELECT title, release_year, rating_id FROM Games g ";
+                                    
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
+                    using (StreamWriter file = new StreamWriter("data.json"))
+                    {
+                        while (reader.Read())
+                        {
+                            string gameTitle = reader.GetString(0);
+                            DateTime releaseYear = reader.GetDateTime(1);
+                            int ratingId = reader.GetInt32(2);
+
+                            string jsonData = $"{{\"title\": \"{gameTitle}\", \"release_year\": \"{releaseYear}\", \"rating_id\": {ratingId}}},";
+
+                            file.WriteLine(jsonData);
+                        }
+                        Console.WriteLine("Succes wrote the file");
+                    }
+                }
+            }
+        }
+    }
+
+
+    static async Task AsyncFun1()
+    {
+        try
+        {
+            using(HttpClient client = new HttpClient())
+            {
+                string url = "https://google.com";
+                HttpResponseMessage response = await client.GetAsync(url);
+                response.EnsureSuccessStatusCode();
+                string responseBody = await response.Content.ReadAsStringAsync();
+
+                HtmlDocument htmlDocument = new HtmlDocument();
+                htmlDocument.LoadHtml(responseBody);
+
+                HtmlNode companyNameNode = htmlDocument.DocumentNode.SelectSingleNode("//title");
+                string companyName = companyNameNode.InnerText;
+                await Console.Out.WriteLineAsync(companyName);
+
+            }
+        } 
+        catch (Exception ex)
+        {
+            await Console.Out.WriteLineAsync(ex.Message);
+        }
+    }
+
+    static async Task AsyncFun2()
+    {
+        string dataJson = "data.json";
+        try
+        {
+            using(StreamReader reader = File.OpenText(dataJson))
+            {
+                string line;
+                int lineCount = 0;
+
+                while ((line = await reader.ReadLineAsync()) != null)
+                {
+                    lineCount++;
+                }
+
+                Console.WriteLine($"Line count: {lineCount}");
+            }
+        }
+        catch(Exception ex)
+        {
+            await Console.Out.WriteLineAsync(ex.Message);
+        }
+    }
+
+    static async Task<int> AsyncFun3(int a, int b)
+    {
+        await Task.Delay(1000);
+
+        return a + b;
+    }
+
+    static void Main()
+    {
+        List<int> numbers = new List<int> { 555, 511, 8, 3, 152, 120, 2576 };
+        Thread thread1 = new Thread(() => ThreadFun1(numbers, "Thread 1"));
+        Thread thread2 = new Thread(new ThreadStart(ThreadFun2));
+        Thread thread3 = new Thread(new ThreadStart(ThreadFun3));
+
+        
+        thread2.Start();
+        thread1.Start();
+        thread3.Start();
+
+        thread1.Join();
+        thread2.Join();
+        thread3.Join();
+
+        AsyncFun1().GetAwaiter().GetResult();
+        AsyncFun2().GetAwaiter().GetResult();
+        Console.WriteLine(AsyncFun3(2, 56).GetAwaiter().GetResult());
+
+
     }
 }
