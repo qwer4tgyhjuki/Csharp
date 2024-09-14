@@ -1,0 +1,78 @@
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using WebApplication2.Models;
+using WebApplication2.Services.UserService;
+
+namespace WebApplication2.Controllers.Anime
+{
+    [ApiController]
+    [ApiVersion("1.0")]
+    [Route("api/v{version:apiVersion}/[controller]")]
+    [Authorize]
+    public class UserController : ControllerBase
+    {
+        private readonly IUserService _userService;
+
+        public UserController(IUserService userService)
+        {
+            _userService = userService;
+        }
+
+        [HttpGet("GetAllUsers")]
+        public async Task<ActionResult> GetAllUsers()
+        {
+            try
+            {
+                var users = await _userService.GetAllUsers();
+                return Ok(users);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet("GetUserById")]
+        public async Task<ActionResult> GetUserById(int id)
+        {
+            try
+            {
+                var user = await _userService.GetUserById(id);
+                return Ok(user);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPut("UpdateUser")]
+        public async Task<ActionResult> UpdateUser(int id, UserModel userModel)
+        {
+            try
+            {
+                var updatedUser = await _userService.UpdateUser(id, userModel);
+                return Ok(new { Message = "Updated", updatedUser });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpDelete("DeleteUserById")]
+        public async Task<ActionResult> DeleteUserById(int id)
+        {
+            try
+            {
+                var users = await _userService.DeleteUserById(id);
+                return Ok(new { Message = "Deleted", users });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+    }
+}
